@@ -3,7 +3,7 @@
 [![Static Badge](https://img.shields.io/badge/La_Javaness-blue?style=flat&labelColor=FFFFFF&color=0000FF)](https://www.lajavaness.com/)
 ![Static Badge](https://img.shields.io/badge/license-MPL%202.0-black)
 
-This agent is a simplified version of the winning agent of the L2RPN 2023 IDF AI challenge co-organized by RTE and Paris Region. It comes as an enhanced combination inspired by pre-existing baselines such as the curriculum agent and the optimCVXPY agent with additional features. Its development was guided towards the challenge's specific requirements. Especially, it combines continuous control and bus reconfiguration decision making with additional heuristics to operate the grid safely at low cost (i.e. maximizing an operational score) while maximizing the use of renewable energy available at all time.
+This agent is a simplified version of the winning agent of the L2RPN 2023 IDF AI challenge co-organized by RTE and Paris Region. It comes as an enhanced combination of pre-existing baselines directly inspired by the curriculum agent and the optimCVXPY agent with additional features. Its development was guided towards the challenge's specific requirements. Especially, it combines continuous control and bus reconfiguration decision making with additional heuristics to operate the grid safely at low cost (i.e. maximizing an operational score) while maximizing the use of renewable energy available at all time.
 
 This agent is highly competitive on large complex environment while remaining computationally efficient (max. decision time < 3 seconds).
 
