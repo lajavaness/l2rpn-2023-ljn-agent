@@ -3,10 +3,11 @@ import warnings
 
 from grid2op.MakeEnv import make
 from grid2op.Runner import Runner
+from l2rpn_baselines.utils.save_log_gif import save_log_gif
 from lightsim2grid import LightSimBackend
 
-from l2rpn_baselines.LJNAgent import LJNAgent
-from l2rpn_baselines.utils.save_log_gif import save_log_gif
+# from l2rpn_baselines.LJNAgent import LJNAgent
+from .LJNAgent import LJNAgent
 
 
 def evaluate(
@@ -16,7 +17,7 @@ def evaluate(
     nb_episode=1,
     nb_process=1,
     max_steps=-1,
-    verbose=False,
+    verbose=True,
     save_gif=False,
     **kwargs
 ):
@@ -65,7 +66,11 @@ def evaluate(
     runner_params["verbose"] = verbose
 
     # Create the agent - using default parameters suitable for l2rpn_idf_2023
-    agent = LJNAgent(env, env.action_space, verbose=verbose)
+    agent = LJNAgent(
+        env,
+        env.action_space,
+        verbose=verbose,
+    )
 
     # Build the runner
     runner = Runner(**env.get_params_for_runner(), agentClass=None, agentInstance=agent)

@@ -1,20 +1,21 @@
 """In this file all utility methods are collected which are jointly used by the teacher, tutor, junior and senior agent.
 The major task of the methods is to communicate with the Grid2Op Environment.
 
-Credit: The methods are the enhanced methods of the original code, see
+Credit: Some of the methods are the enhanced methods of the original code, see
 @https://github.com/AsprinChina/L2RPN_NIPS_2020_a_PPO_Solution
 """
 
 import logging
-from copy import deepcopy
-from typing import Optional, List, Tuple, Iterator
 import re
+from copy import deepcopy
+from typing import Iterator, List, Optional, Tuple
+
 import grid2op
 import numpy as np
-from grid2op.Action import BaseAction, ActionSpace
+from grid2op.Action import ActionSpace, BaseAction
+from grid2op.dtypes import dt_int
 from grid2op.Environment import BaseEnv
 from grid2op.Observation import BaseObservation
-from grid2op.dtypes import dt_int
 
 
 def find_best_line_to_reconnect(

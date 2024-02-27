@@ -7,21 +7,24 @@ This code is mainly based on l2rpn_baselines.OptimCVXPY, with the following diff
 - revise and comment the code to make it clearer.
 """
 
-import os
 import copy
-import time
 import logging
+import os
+import time
 import warnings
+
 import cvxpy as cp
 import numpy as np
-from grid2op.Agent import BaseAgent
 from grid2op.Action import BaseAction
+from grid2op.Agent import BaseAgent
 from grid2op.Backend import PandaPowerBackend
-from grid2op.Observation import BaseObservation
 from grid2op.l2rpn_utils.idf_2023 import ObservationIDF2023
+from grid2op.Observation import BaseObservation
+from l2rpn_baselines.LJNAgent.utilities import find_best_line_to_reconnect, revert_topo
 from lightsim2grid import LightSimBackend
 from lightsim2grid.gridmodel import init
-from l2rpn_baselines.LJNAgent.utilities import find_best_line_to_reconnect, revert_topo
+
+from .train.utils import build_gym_env
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +158,10 @@ class LJNAgent(BaseAgent):
         ],
         config: dict = L2RPN_IDF_2023_DEFAULT_OPTIM_CONFIG,
         verbose: bool = True,
+        topo_model_path_N1_safe: str = None,
+        topo_model_path_N1_unsafe: str = None,
+        topo_model_path_N1_interm: str = None,
+        topo_model_path_12_unsafe: str = None,
     ):
         """
         Initialize the agent with the given environment, action space, configuration, and other optional parameters.
@@ -194,6 +201,43 @@ class LJNAgent(BaseAgent):
 
         if not verbose:
             logging.disable(logging.CRITICAL)
+
+        self.gym_env = {}
+        self.model = {}
+
+        if isinstance(topo_model_path_12_unsafe, str):
+            self._load_topo_model(topo_model_path_12_unsafe, "12_unsafe")
+        if isinstance(topo_model_path_N1_safe, str):
+            self._load_topo_model(topo_model_path_N1_safe, "N1_safe")
+        if isinstance(topo_model_path_N1_unsafe, str):
+            self._load_topo_model(topo_model_path_N1_unsafe, "N1_unsafe")
+        if isinstance(topo_model_path_N1_interm, str):
+            self._load_topo_model(topo_model_path_N1_interm, "N1_interm")
+
+    def _load_topo_model(self, model_path, name):
+        # Lazy import
+        from imitation.algorithms import bc
+        from stable_baselines3 import PPO
+
+        action_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), f"action/action_{name}.npz"
+        )
+        model_path = model_path
+
+        logging.info(
+            f"Loading neural network based topology model for {name} action space..."
+        )
+        self.gym_env[name] = build_gym_env("l2rpn_idf_2023", action_path)[0]
+        custom_objects = {
+            "observation_space": self.gym_env[name].observation_space,
+            "action_space": self.gym_env[name].action_space,
+        }
+        self.model[name] = PPO.load(model_path, custom_objects=custom_objects)
+        # self.model[name].set_env(self.gym_env[name])
+        # self.model[name] = bc.reconstruct_policy(model_path,)
+        logging.info(
+            "Model successfully loaded, it will be used to predict topo actions when needed."
+        )
 
     def _get_grid_info(self, env):
         """
@@ -1229,13 +1273,25 @@ class LJNAgent(BaseAgent):
     def change_substation_topology(self, observation, base_action, min_rho=None):
         # Decide which set of topology actions to consider based on the grid's state.
         if observation.rho.max() < self.rho_safe:
+            if "N1_safe" in self.model:
+                return self.get_topo_nn_act(observation, base_action, "N1_safe")
             topo_action = self.topo_actions_to_check_N1_safe
         elif observation.rho.max() > self.rho_danger:
             if all(observation.line_status):
+                if "12_unsafe" in self.model:
+                    return (
+                        self.get_topo_nn_act(observation, base_action, "12_unsafe"),
+                        observation,
+                        0,
+                    )
                 topo_action = self.topo_actions_to_check_12_unsafe
             else:
+                if "N1_unsafe" in self.model:
+                    return self.get_topo_nn_act(observation, base_action, "N1_unsafe")
                 topo_action = self.topo_actions_to_check_N1_unsafe
         else:
+            if "N1_interm" in self.model:
+                return self.get_topo_nn_act(observation, base_action, "N1_interm")
             topo_action = self.topo_actions_to_check_N1_interm
 
         # If no target loading ratio is provided, use the maximum observed loading ratio as the target. if min_rho is None:
@@ -1271,6 +1327,16 @@ class LJNAgent(BaseAgent):
                     min_rho = obs_simu.rho.max()
 
         return action_chosen, obs_chosen, min_rho
+
+    def get_topo_nn_act(self, obs, base_action, action_space):
+        gym_obs = self.gym_env[action_space].observation_space.to_gym(obs)
+        gym_action, _states = self.model[action_space].predict(gym_obs)
+        act = self.gym_env[action_space].action_space.from_gym(gym_action)
+        combined_action = base_action + act
+        obs_simu, _reward, _done, _info = obs.simulate(
+            combined_action, time_step=self.time_step
+        )
+        return act, obs_simu, obs_simu.rho.max()
 
     def get_topology_action(self, observation, base_action, safe=False, min_rho=None):
         # If no target loading ratio is provided, use the maximum observed loading ratio as the target. if min_rho is None:
