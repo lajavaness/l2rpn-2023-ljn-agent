@@ -46,6 +46,7 @@ Then, the training can be performed as follow :
 2. Run `python -m l2rpn-2023-ljn-agent.generate_expert_trajectories` to generate 4 datasets for the supervised training of the Actor-Critic policies. The datasets are stored with Hugging Face's datasets format can be load with the Datasets package.
 3. Run `python -m l2rpn-2023-ljn-agent.train.train_behaviour_cloning` to create and train the policies. You should get a folder containing 2 models for each action space one corresponding to the supervised training and a second one corresponding to the successive use of BC and PPO algorithms.
 4. You can now use the models with the agent to replace search algorithms :
+
 ```python
 from l2rpn_baselines.LJNAgent import LJNAgent
 
